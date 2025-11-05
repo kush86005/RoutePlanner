@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Route Planner</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        :root {
+          --bg: #0f172a;
+          --panel: #101826;
+          --muted: #9aa4b2;
+          --line: rgba(255,255,255,.08);
+          --text: #e6ebf2;
+          --accent: #3cc6e0;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: linear-gradient(135deg, #0f172a, #0b1120 55%); color: var(--text); font-family: Inter, system-ui, Arial; }
+        .wrap { max-width: 1000px; margin: 48px auto; padding: 0 16px; }
+        .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
+        .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+        h1 { margin: 0 0 6px; font-size: 24px; }
+        h2 { margin: 0 0 10px; font-size: 18px; }
+        .row { display: flex; gap: 10px; flex-wrap: wrap; }
+        .field { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 6px; }
+        label { font-size: 12px; color: var(--muted); }
+        input { background: #0b1220; border: 1px solid var(--line); color: var(--text); border-radius: 10px; padding: 10px 12px; }
+        button { border: 0; background: var(--accent); color: #07131a; border-radius: 10px; padding: 10px 14px; font-weight: 600; cursor: pointer; }
+        .ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+        .list { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 10px; max-height: 260px; overflow: auto; font-size: 14px; }
+        .muted { color: var(--muted); font-size: 12px; }
+        .pill { display: inline-block; padding: 4px 8px; border: 1px solid var(--line); border-radius: 999px; margin: 2px; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { padding: 8px; border-bottom: 1px solid var(--line); text-align: left; }
+        .out { white-space: pre-wrap; background: #0b1220; border: 1px dashed var(--line); padding: 12px; border-radius: 10px; margin-top: 10px; min-height: 56px; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="card" style="margin-bottom:12px">
+        <h1>Route Planner</h1>
+        <div class="muted">Add cities and roads (with distances in km), then compute the shortest path between two points.</div>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h2>Add City</h2>
+            <div class="row">
+                <div class="field">
+                    <label for="cityName">City name</label>
+                    <input id="cityName" placeholder="e.g., delhi">
+                </div>
+                <div class="field" style="align-self:flex-end">
+                    <button id="addCityBtn">Add City</button>
+                </div>
+            </div>
+
+            <h2 style="margin-top:18px">Add Road</h2>
+            <div class="row">
+                <div class="field">
+                    <label for="srcRoad">From</label>
+                    <input id="srcRoad" placeholder="e.g., delhi">
+                </div>
+                <div class="field">
+                    <label for="destRoad">To</label>
+                    <input id="destRoad" placeholder="e.g., jaipur">
+                </div>
+                <div class="field">
+                    <label for="kmRoad">Distance (km)</label>
+                    <input id="kmRoad" type="number" min="1" placeholder="e.g., 280">
+                </div>
+                <div class="field" style="align-self:flex-end">
+                    <button id="addRoadBtn">Add Road</button>
+                </div>
+            </div>
+
+            <div class="muted" style="margin-top:8px">Tip: city names are case-insensitive.</div>
+
+            <h2 style="margin-top:18px">Find Shortest Path</h2>
+            <div class="row">
+                <div class="field">
+                    <label for="srcFind">Source</label>
+                    <input id="srcFind" placeholder="e.g., pune">
+                </div>
+                <div class="field">
+                    <label for="destFind">Destination</label>
+                    <input id="destFind" placeholder="e.g., mumbai">
+                </div>
+                <div class="field" style="align-self:flex-end">
+                    <button id="findBtn">Find</button>
+                </div>
+            </div>
+            <div id="result" class="out">Result will appear here.</div>
+        </div>
+
+        <div class="card">
+            <h2>Current Network</h2>
+            <div class="muted">Cities</div>
+            <div id="cities" class="list"></div>
+
+            <div class="muted" style="margin-top:10px">Roads</div>
+            <div class="list">
+                <table>
+                    <thead><tr><th>From</th><th>To</th><th>Distance (km)</th></tr></thead>
+                    <tbody id="roads"></tbody>
+                </table>
+            </div>
+
+            <div class="row" style="margin-top:8px">
+                <button class="ghost" id="seedBtn">Seed Example</button>
+                <button class="ghost" id="refreshBtn">Refresh</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const $ = (id) => document.getElementById(id);
+    const cityName = $('cityName'), srcRoad = $('srcRoad'), destRoad = $('destRoad'), kmRoad = $('kmRoad');
+    const srcFind = $('srcFind'), destFind = $('destFind');
+    const addCityBtn = $('addCityBtn'), addRoadBtn = $('addRoadBtn'), findBtn = $('findBtn');
+    const seedBtn = $('seedBtn'), refreshBtn = $('refreshBtn');
+    const citiesDiv = $('cities'), roadsTbody = $('roads'), result = $('result');
+
+    async function api(path, opts) {
+      const res = await fetch(path, opts);
+      if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+      return res.json().catch(() => ({}));
+    }
+
+    function showGraph(g) {
+      citiesDiv.innerHTML = '';
+      (g.cities || []).forEach(c => {
+        const span = document.createElement('span');
+        span.className = 'pill';
+        span.textContent = c[0].toUpperCase() + c.slice(1);
+        citiesDiv.appendChild(span);
+      });
+
+      roadsTbody.innerHTML = '';
+      (g.roads || []).forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${cap(r.src)}</td><td>${cap(r.dest)}</td><td>${r.distance}</td>`;
+        roadsTbody.appendChild(tr);
+      });
+    }
+
+    function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
+
+    async function refresh() {
+      try { showGraph(await api('/api/graph')); } catch { /* ignore */ }
+    }
+
+    addCityBtn.onclick = async () => {
+      const name = (cityName.value || '').trim();
+      if (!name) { result.textContent = 'Enter a city name.'; return; }
+      try {
+        const r = await api('/api/cities', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ name })
+        });
+        result.textContent = r.message || 'OK';
+        cityName.value = '';
+        await refresh();
+      } catch (e) { result.textContent = 'Failed to add city.'; }
+    };
+
+    addRoadBtn.onclick = async () => {
+      const s = (srcRoad.value||'').trim(), d = (destRoad.value||'').trim();
+      const km = parseInt(kmRoad.value, 10);
+      if (!s || !d || !(km > 0)) { result.textContent = 'Enter valid from, to and distance (>0).'; return; }
+      try {
+        const r = await api('/api/roads', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ src: s, dest: d, distance: km })
+        });
+        result.textContent = r.message || 'OK';
+        srcRoad.value = destRoad.value = kmRoad.value = '';
+        await refresh();
+      } catch (e) { result.textContent = 'Failed to add road.'; }
+    };
+
+    findBtn.onclick = async () => {
+      const s = (srcFind.value||'').trim(), d = (destFind.value||'').trim();
+      if (!s || !d) { result.textContent = 'Enter source and destination.'; return; }
+      try {
+        const r = await api(`/api/shortest?src=${encodeURIComponent(s)}&dest=${encodeURIComponent(d)}`);
+        if ((r.distance ?? -1) < 0 || !r.path || !r.path.length) {
+          result.textContent = 'No route found or city missing.';
+          return;
+        }
+        result.textContent = `Path: ${r.path.join(' → ')}\nTotal distance: ${r.distance} km`;
+      } catch (e) { result.textContent = 'Failed to compute route.'; }
+    };
+
+    seedBtn.onclick = async () => {
+      // quick sample set
+      const ops = [
+        ['pune'], ['mumbai'], ['nashik'], ['delhi'], ['agra'], ['jaipur'],
+      ].map(([name]) => api('/api/cities', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name}) }).catch(()=>{}));
+      await Promise.all(ops);
+
+      const rds = [
+        {src:'delhi', dest:'agra', distance:233},
+        {src:'agra', dest:'jaipur', distance:238},
+        {src:'delhi', dest:'jaipur', distance:281},
+        {src:'pune', dest:'mumbai', distance:150},
+        {src:'pune', dest:'nashik', distance:200},
+        {src:'mumbai', dest:'nashik', distance:180}
+      ].map(x => api('/api/roads', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(x) }).catch(()=>{}));
+      await Promise.all(rds);
+      await refresh();
+      result.textContent = 'Sample data added.';
+    };
+
+    refreshBtn.onclick = refresh;
+
+    refresh();
+</script>
+</body>
+</html>
