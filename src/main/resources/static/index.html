@@ -193,7 +193,7 @@
       const has=(a,b)=> state.roads.some(r=> (r.src===a&&r.dest===b)||(r.src===b&&r.dest===a) );
       rds.forEach(r=>{ if(!has(r.src,r.dest)) state.roads.push(r); });
       render();
-      result.textContent='Sample data added (front-end only).';
+      result.textContent='Sample data added.';
     };
 
     resetBtn.onclick = () => {
