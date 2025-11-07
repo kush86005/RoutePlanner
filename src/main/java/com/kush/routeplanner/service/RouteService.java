@@ -12,62 +12,35 @@ public class RouteService {
     private final Graph graph = new Graph();
 
     public RouteService() {
-        // seed a few defaults so the UI works on first run
-        graph.addCity("pune");
-        graph.addCity("mumbai");
-        graph.addCity("nashik");
+        // seed a sensible base network
         graph.addRoad("pune", "mumbai", 150);
-        graph.addRoad("pune", "nashik", 200);
+        graph.addRoad("mumbai", "surat", 280);
+        graph.addRoad("surat", "ahmedabad", 260);
+        graph.addRoad("ahmedabad", "jaipur", 650);
+        graph.addRoad("jaipur", "delhi", 280);
         graph.addRoad("mumbai", "nashik", 180);
     }
 
-    public Map<String, Object> addCity(String name) {
-        boolean ok = graph.addCity(name);
-        Map<String, Object> res = new HashMap<>();
-        res.put("success", ok);
-        res.put("message", ok ? "City added" : "City already exists or invalid");
-        return res;
+    public void addCity(String name) {
+        graph.addCity(name);
     }
 
-    public Map<String, Object> addRoad(String src, String dest, int km) {
-        boolean ok = graph.addRoad(src, dest, km);
-        Map<String, Object> res = new HashMap<>();
-        res.put("success", ok);
-        res.put("message", ok ? "Road added" : "Invalid road or already exists");
-        return res;
+    public void addRoad(String from, String to, int distance) {
+        graph.addRoad(from, to, distance);
     }
 
     public Map<String, Object> shortest(String src, String dest) {
-        Graph.PathResult r = graph.dijkstra(src, dest);
+        Graph.PathResult r = graph.shortest(src, dest);
         Map<String, Object> res = new HashMap<>();
-        if (r.distance == Integer.MAX_VALUE) {
-            res.put("path", new String[0]);
-            res.put("distance", -1);
-            res.put("message", "No route found or city missing");
-            return res;
-        }
-        res.put("path", r.path.stream().map(RouteService::cap).toArray(String[]::new));
-        res.put("distance", r.distance);
-        res.put("message", "OK");
+        res.put("path", r.path());
+        res.put("distance", r.distance());
         return res;
     }
 
     public Map<String, Object> graphSnapshot() {
         Map<String, Object> res = new HashMap<>();
-        res.put("cities", graph.cities());
-        res.put("roads", graph.roads());
+        // expose adjacency as { city: [{to, distance}, ...], ... }
+        res.putAll(graph.snapshot());
         return res;
-    }
-
-    public void reset() {
-        // simplest reset: replace the instance
-        synchronized (this) {
-            // not strictly necessary for single-user dev, but fine
-        }
-    }
-
-    private static String cap(String s) {
-        if (s == null || s.isEmpty()) return s;
-        return s.substring(0,1).toUpperCase() + s.substring(1);
     }
 }

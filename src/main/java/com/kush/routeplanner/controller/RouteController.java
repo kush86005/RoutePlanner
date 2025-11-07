@@ -1,7 +1,6 @@
 package com.kush.routeplanner.controller;
 
 import com.kush.routeplanner.service.RouteService;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -11,36 +10,36 @@ import java.util.Map;
 public class RouteController {
 
     private final RouteService service;
-    public RouteController(RouteService service) { this.service = service; }
 
-    @GetMapping("/graph")
-    public Map<String, Object> graph() { return service.graphSnapshot(); }
-
-    @PostMapping("/cities")
-    public ResponseEntity<Map<String, Object>> addCity(@RequestBody CityRequest body) {
-        if (body == null || body.name == null) return ResponseEntity.badRequest().build();
-        return ResponseEntity.ok(service.addCity(body.name));
+    public RouteController(RouteService service) {
+        this.service = service;
     }
 
-    @PostMapping("/roads")
-    public ResponseEntity<Map<String, Object>> addRoad(@RequestBody RoadRequest body) {
-        if (body == null || body.src == null || body.dest == null || body.distance <= 0)
-            return ResponseEntity.badRequest().build();
-        return ResponseEntity.ok(service.addRoad(body.src, body.dest, body.distance));
+    @GetMapping("/health")
+    public String health() { return "OK"; }
+
+    @PostMapping("/add-city")
+    public String addCity(@RequestParam String name) {
+        service.addCity(name);
+        return "City added";
+    }
+
+    @PostMapping("/add-road")
+    public String addRoad(@RequestParam String from,
+                          @RequestParam String to,
+                          @RequestParam int distance) {
+        service.addRoad(from, to, distance);
+        return "Road added";
     }
 
     @GetMapping("/shortest")
-    public Map<String, Object> shortest(@RequestParam String src, @RequestParam String dest) {
+    public Map<String, Object> shortest(@RequestParam String src,
+                                        @RequestParam String dest) {
         return service.shortest(src, dest);
     }
 
-    public static final class CityRequest {
-        public String name;
-    }
-
-    public static final class RoadRequest {
-        public String src;
-        public String dest;
-        public int distance;
+    @GetMapping("/graph")
+    public Map<String, Object> graph() {
+        return service.graphSnapshot();
     }
 }

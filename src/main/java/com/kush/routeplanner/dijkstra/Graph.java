@@ -3,126 +3,94 @@ package com.kush.routeplanner.dijkstra;
 import java.util.*;
 
 public class Graph {
-    public static final class Edge {
-        public final String destination;
-        public final int distance;
-        public Edge(String destination, int distance) {
-            this.destination = destination;
-            this.distance = distance;
-        }
-    }
-
-    public static final class PathResult {
-        public final List<String> path;   // lowercase city names
-        public final int distance;        // total km, Integer.MAX_VALUE if unreachable
-        public PathResult(List<String> path, int distance) {
-            this.path = path;
-            this.distance = distance;
-        }
-    }
 
     private final Map<String, List<Edge>> adj = new HashMap<>();
 
-    public boolean addCity(String name) {
-        if (name == null) return false;
-        String key = name.trim().toLowerCase();
-        if (key.isEmpty()) return false;
-        if (adj.containsKey(key)) return false;
-        adj.put(key, new ArrayList<>());
-        return true;
-    }
+    public static class Edge {
+        public String to;
+        public int distance;
 
-    public boolean addRoad(String a, String b, int km) {
-        if (a == null || b == null || km <= 0) return false;
-        String u = a.trim().toLowerCase();
-        String v = b.trim().toLowerCase();
-        if (u.isEmpty() || v.isEmpty() || u.equals(v)) return false;
-
-        adj.putIfAbsent(u, new ArrayList<>());
-        adj.putIfAbsent(v, new ArrayList<>());
-
-        if (hasEdge(u, v)) return false;
-
-        adj.get(u).add(new Edge(v, km));
-        adj.get(v).add(new Edge(u, km));
-        return true;
-    }
-
-    public Set<String> cities() {
-        return new TreeSet<>(adj.keySet());
-    }
-
-    public List<Road> roads() {
-        List<Road> out = new ArrayList<>();
-        Set<String> seen = new HashSet<>();
-        for (var e : adj.entrySet()) {
-            String u = e.getKey();
-            for (Edge ed : e.getValue()) {
-                String v = ed.destination;
-                String key = u.compareTo(v) < 0 ? u+"#"+v : v+"#"+u;
-                if (seen.add(key)) out.add(new Road(u, v, ed.distance));
-            }
+        public Edge(String to, int distance) {
+            this.to = to;
+            this.distance = distance;
         }
-        out.sort(Comparator.comparing((Road r) -> r.src).thenComparing(r -> r.dest));
-        return out;
     }
 
-    public PathResult dijkstra(String src, String dest) {
-        if (src == null || dest == null) return new PathResult(List.of(), Integer.MAX_VALUE);
-        String s = src.trim().toLowerCase();
-        String t = dest.trim().toLowerCase();
-        if (!adj.containsKey(s) || !adj.containsKey(t)) return new PathResult(List.of(), Integer.MAX_VALUE);
+    public void addCity(String city) {
+        if (city == null || city.isBlank()) return;
+        city = city.toLowerCase().trim();
+        adj.putIfAbsent(city, new ArrayList<>());
+    }
+
+    public void addRoad(String a, String b, int d) {
+        if (a == null || b == null || d <= 0) return;
+        a = a.toLowerCase().trim();
+        b = b.toLowerCase().trim();
+        if (a.equals(b)) return;
+        addCity(a);
+        addCity(b);
+        // avoid dup undirected
+        if (!hasEdge(a, b)) adj.get(a).add(new Edge(b, d));
+        if (!hasEdge(b, a)) adj.get(b).add(new Edge(a, d));
+    }
+
+    private boolean hasEdge(String from, String to) {
+        List<Edge> list = adj.getOrDefault(from, Collections.emptyList());
+        for (Edge e : list) if (e.to.equals(to)) return true;
+        return false;
+    }
+
+    public Map<String, List<Edge>> snapshot() {
+        // return shallow copy for read-only exposure
+        Map<String, List<Edge>> copy = new TreeMap<>();
+        for (var e : adj.entrySet()) {
+            copy.put(e.getKey(), new ArrayList<>(e.getValue()));
+        }
+        return copy;
+    }
+
+    public PathResult shortest(String src, String dest) {
+        src = src.toLowerCase().trim();
+        dest = dest.toLowerCase().trim();
+        if (!adj.containsKey(src) || !adj.containsKey(dest)) {
+            return new PathResult(null, -1);
+        }
 
         Map<String, Integer> dist = new HashMap<>();
         Map<String, String> parent = new HashMap<>();
         PriorityQueue<Node> pq = new PriorityQueue<>(Comparator.comparingInt(n -> n.d));
+
         for (String c : adj.keySet()) dist.put(c, Integer.MAX_VALUE);
-        dist.put(s, 0);
-        pq.add(new Node(s, 0));
+        dist.put(src, 0);
+        pq.add(new Node(src, 0));
 
         while (!pq.isEmpty()) {
             Node cur = pq.poll();
-            if (cur.d != dist.get(cur.city)) continue;
-            if (cur.city.equals(t)) break;
+            if (cur.d != dist.get(cur.city)) continue; // stale
+            if (cur.city.equals(dest)) break;
+
             for (Edge e : adj.get(cur.city)) {
                 int nd = cur.d + e.distance;
-                if (nd < dist.get(e.destination)) {
-                    dist.put(e.destination, nd);
-                    parent.put(e.destination, cur.city);
-                    pq.add(new Node(e.destination, nd));
+                if (nd < dist.get(e.to)) {
+                    dist.put(e.to, nd);
+                    parent.put(e.to, cur.city);
+                    pq.add(new Node(e.to, nd));
                 }
             }
         }
 
-        if (dist.get(t) == Integer.MAX_VALUE) return new PathResult(List.of(), Integer.MAX_VALUE);
+        if (dist.get(dest) == Integer.MAX_VALUE) return new PathResult(null, -1);
 
         List<String> path = new ArrayList<>();
-        String cur = t;
-        while (cur != null) {
-            path.add(cur);
-            cur = parent.get(cur);
-        }
+        for (String at = dest; at != null; at = parent.get(at)) path.add(at);
         Collections.reverse(path);
-        return new PathResult(path, dist.get(t));
+        return new PathResult(path, dist.get(dest));
     }
 
-    private boolean hasEdge(String u, String v) {
-        for (Edge e : adj.getOrDefault(u, List.of())) if (e.destination.equals(v)) return true;
-        return false;
-    }
-
-    private static final class Node {
-        final String city; final int d;
+    private static class Node {
+        String city; int d;
         Node(String c, int d) { this.city = c; this.d = d; }
     }
 
-    // simple immutable representation for listing roads
-    public static final class Road {
-        public final String src;
-        public final String dest;
-        public final int distance;
-        public Road(String src, String dest, int distance) {
-            this.src = src; this.dest = dest; this.distance = distance;
-        }
-    }
+    public record PathResult(List<String> path, int distance) {}
 }
