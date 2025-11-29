@@ -29,7 +29,6 @@ public class Graph {
         if (a.equals(b)) return;
         addCity(a);
         addCity(b);
-        // avoid dup undirected
         if (!hasEdge(a, b)) adj.get(a).add(new Edge(b, d));
         if (!hasEdge(b, a)) adj.get(b).add(new Edge(a, d));
     }
@@ -41,7 +40,6 @@ public class Graph {
     }
 
     public Map<String, List<Edge>> snapshot() {
-        // return shallow copy for read-only exposure
         Map<String, List<Edge>> copy = new TreeMap<>();
         for (var e : adj.entrySet()) {
             copy.put(e.getKey(), new ArrayList<>(e.getValue()));

@@ -12,7 +12,6 @@ public class RouteService {
     private final Graph graph = new Graph();
 
     public RouteService() {
-        // seed a sensible base network
         graph.addRoad("pune", "mumbai", 150);
         graph.addRoad("mumbai", "surat", 280);
         graph.addRoad("surat", "ahmedabad", 260);
@@ -39,7 +38,6 @@ public class RouteService {
 
     public Map<String, Object> graphSnapshot() {
         Map<String, Object> res = new HashMap<>();
-        // expose adjacency as { city: [{to, distance}, ...], ... }
         res.putAll(graph.snapshot());
         return res;
     }
