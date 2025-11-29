@@ -1,7 +1,5 @@
 # Route Planner 🧭
 
-### 🚀 Live Demo  
-https://route-planner-production-9510.up.railway.app
 
 ![App Preview](./screenshot/route-planner.png)
 
